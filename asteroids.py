@@ -7,7 +7,7 @@ import pygame.gfxdraw
 # Dynamic general game object class
 from pygame.constants import *
 
-framerate = 600
+framerate = 120
 frametime = 1000/framerate
 
 
@@ -36,7 +36,6 @@ class Display(object):
 def toRad(angle):
     return angle * (math.pi / 180)
 
-
 class vector2(object):
     def __init__(self, x, y):
         self.x, self.y = x, y
@@ -47,14 +46,17 @@ class vector2(object):
     def add(self, vec2):
         self.x += vec2.x
         self.y += vec2.y
+        return self
 
     def invert(self):
         self.x *= -1
         self.y *= -1
+        return self
 
     def dot_product(self, vec2):
         self.x *= vec2.x
         self.y *= vec2.y
+        return self
 
     def multiply(self, factor):
         return vector2(self.x * factor, self.y * factor)
@@ -94,6 +96,17 @@ class AsteroidsGame(object):
         self.display = Display()
         self.framerate = 60
         self.clock = pygame.time.Clock()
+        self.bulletDelay = 200 # ms
+        self.bulletTimer = 0
+
+    def spawnAsteroid(self):
+        angle = toRad(random.random() * 360)
+        position = vector2(math.cos(angle), math.sin(angle)).invert()
+
+        self.asteroids.append(Asteroid(position, random.random()*20))
+
+
+
 
     def handle_colisions(self):
         for bullet in self.bullets:
@@ -101,7 +114,20 @@ class AsteroidsGame(object):
                 if bullet.pos.diff(asteroid.pos).mag() < 20:
                     pass
 
+    def area(self, tri):
+        return abs((tri[0].x * (tri[1].y - tri[2].y) + tri[1].x * (tri[2].y - tri[0].y) + tri[2].x * (tri[0].y - tri[1].y)) / 2)
+
+    def detect_point_in_triangle(self, point, triangle):
+        pass
+
+
+
+
+
+
     def step(self):
+        self.clock.tick_busy_loop(120)
+        self.bulletTimer -= frametime;
         print(len(self.bullets))
         if pygame.key.get_focused():
             if pygame.key.get_pressed()[K_UP]:
@@ -111,11 +137,13 @@ class AsteroidsGame(object):
             if pygame.key.get_pressed()[K_LEFT]:
                 self.player.turn(-1)
             if pygame.key.get_pressed()[K_SPACE]:
-                self.bullets.append(Bullet(self.player.pos.copy(), self.player.direction))
-
+                if self.bulletTimer <= 0:
+                    self.bulletTimer = self.bulletDelay
+                    self.bullets.append(Bullet(self.player.pos.copy(), self.player.direction))
 
 
         self.display.screen.fill((0, 0, 0))
+
         for asteroid in self.asteroids:
             if not asteroid.step():
                 if(asteroid.size > 5):
@@ -145,15 +173,13 @@ class AsteroidsGame(object):
 
         for bullet in self.bullets:
             self.display.draw_point(bullet.pos)
-
-        pygame.time.wait(int(frametime))
 class Player(gameObject):
     def __init__(self):
         self.pos = vector2(200, 400)
         self.velocity = vector2(0, 0)
         self.direction = toRad(180+90)
         self.turn_speed = math.pi/(360*2)
-        self.thrust_power = 0.1
+        self.thrust_power = 0.02
 
         self.verts = [
             vector2(7, 0),
@@ -173,8 +199,8 @@ class Player(gameObject):
         self.velocity.add(thrust_vector)
 
     def apply_friction(self):
-        self.velocity.x = self.velocity.x * (1 - 0.01 * frametime)
-        self.velocity.y = self.velocity.y * (1 - 0.01 * frametime)
+        self.velocity.x = self.velocity.x * (1 - 0.002 * frametime)
+        self.velocity.y = self.velocity.y * (1 - 0.002 * frametime)
 
     def turn(self, dir):  # dir from 1 to -1 for right and left
         self.direction += dir * self.turn_speed * frametime
@@ -187,7 +213,7 @@ class Asteroid(gameObject):
     def __init__(self, pos, size):
         self.size = size
         self.pos = vector2(200, 200)
-        self.velocity = vector2(0, 0)
+        self.velocity = vector2(0, 1)
         self.verts = self.gen_verts(16, size)
         self.direction = 0
 
@@ -201,6 +227,7 @@ class Asteroid(gameObject):
 
         return verts
     def step(self):
+        self.pos.add(self.velocity.multiply(frametime/100))
         return True
 
 class Bullet(gameObject):
@@ -209,7 +236,7 @@ class Bullet(gameObject):
         self.pos = pos
         self.direction = direction
     def step(self):
-        self.pos.add(self.velocity.multiply(frametime/4))
+        self.pos.add(self.velocity.multiply(frametime/2))
         return True
 
 
